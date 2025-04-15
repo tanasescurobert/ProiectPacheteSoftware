@@ -23,7 +23,6 @@ data = load_data()
 
 st.title("PIB per locuitor, rata somajului si rata de ocupare a populatiei in varsta de munca (15-64 ani) in Europa si Asia Centrala")
 
-# Tabs
 tabs = st.tabs([
     "1) Prelucrare & Statistici",
     "2) Outlieri",
@@ -171,28 +170,30 @@ with tabs[4]:
 with tabs[5]:
     st.header("Regresie multiplă")
 
-    # Ensure the necessary columns are present
     required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
-
-    # Filter out rows where any required column has missing values
     df_reg = data_pivot[required_columns].dropna()
 
-    # Check if all required columns are available
-    if all(col in df_reg.columns for col in required_columns):
-        # Define X (independent variables) and y (dependent variable)
-        X = df_reg[["Unemployment rate", "Participation rate"]]
-        y = df_reg["GDP per capita"]
+    X = df_reg[["Unemployment rate", "Participation rate"]]
+    y = df_reg["GDP per capita"]
 
-        # Add a constant to the independent variables (for the intercept term)
-        X = sm.add_constant(X)
+    X = sm.add_constant(X)
+    model = sm.OLS(y, X).fit()
 
-        # Perform the regression
-        model = sm.OLS(y, X).fit()
+    st.write(model.summary())
 
-        # Display the regression results
-        st.write(model.summary())
-    else:
-        st.warning("Nu toate coloanele necesare pentru regresia multiplă sunt prezente în setul de date.")
+
+    st.header("Regresie multiplă (log GDP per capita)")
+
+    required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
+    df_reg = data_pivot[required_columns].dropna()
+    df_reg["log_gdp"] = np.log(df_reg["GDP per capita"])
+
+    X = df_reg[["Unemployment rate", "Participation rate"]]
+    y = df_reg["log_gdp"]
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    st.write(model.summary())
 
 
 
