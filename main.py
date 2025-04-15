@@ -194,6 +194,10 @@ with tabs[5]:
     else:
         st.warning("Nu toate coloanele necesare pentru regresia multiplă sunt prezente în setul de date.")
 
+
+
+
+
 # ---------------------- TAB 7 ----------------------
 with tabs[6]:
     st.header("Clasificare - Logistic Regression")
