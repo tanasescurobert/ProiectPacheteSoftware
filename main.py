@@ -5,23 +5,25 @@ import folium
 from streamlit_folium import folium_static
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.cluster import KMeans
-from sklearn.linear_model import LogisticRegression
 import statsmodels.api as sm
 import numpy as np
-import branca
 
 st.set_page_config(layout="wide")
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("dataset_2023.csv")
+    df = pd.read_csv("dataset_2021-2023.csv")
     return df
 
 data = load_data()
 
 st.title("PIB per locuitor, rata somajului si rata de ocupare a populatiei in varsta de munca (15-64 ani) in Europa si Asia Centrala")
+
+years = sorted(data['Year'].unique())
+selected_year = st.selectbox("Selecteaza anul pentru analiza", years, index=0)
+data = data[data['Year'] == selected_year]
 
 tabs = st.tabs([
     "1) Prelucrari date",
@@ -32,8 +34,6 @@ tabs = st.tabs([
     "6) Regresie multipla",
     "7) Regresie logistica"
 ])
-
-
 
 
 
@@ -58,14 +58,11 @@ with tabs[0]:
 
 
 
-
-
 # ---------------------- TAB 2 ----------------------
 with tabs[1]:
     st.header("Detectarea valorilor extreme - GDP per capita")
     indicator_name = 'GDP per capita'
     indicator_data = data[data['Indicator'] == indicator_name]
-    indicator_mean = indicator_data["Value"].mean()
 
     fig, ax = plt.subplots(figsize=(10, 6))
     sns.boxplot(y=indicator_data["Value"], ax=ax)
@@ -82,8 +79,6 @@ with tabs[1]:
         ax.text(x=0, y=row["Value"], s=row["Country Name"], ha="center", va="bottom", fontsize=9, color="blue")
 
     st.pyplot(fig)
-
-
 
 
 
@@ -131,8 +126,6 @@ with tabs[2]:
 
 
 
-
-
 # ---------------------- TAB 4 ----------------------
 with tabs[3]:
     st.header("Codificare si scalare")
@@ -141,7 +134,6 @@ with tabs[3]:
     df_encoded['Country_Code'] = le.fit_transform(df_encoded['Country Name']) + 1
     st.write("Exemplu codificare label:", df_encoded[['Country Name', 'Country_Code']].drop_duplicates().head())
 
-    # scalare
     pivot_scaled = data_pivot.fillna(data_pivot.mean())
     scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(pivot_scaled)
@@ -150,19 +142,18 @@ with tabs[3]:
 
 
 
-
-
 # ---------------------- TAB 5 ----------------------
 with tabs[4]:
     st.header("Clusterizare (KMeans)")
-    kmeans = KMeans(n_clusters=3, random_state=0)
-    clusters = kmeans.fit_predict(scaled_data)
+    if scaled_data.shape[0] >= 3:
+        kmeans = KMeans(n_clusters=3, random_state=0)
+        clusters = kmeans.fit_predict(scaled_data)
 
-    st.write("Etichetare tari pe clustere:")
-    cluster_df = pd.DataFrame({"Country": pivot_scaled.index, "Cluster": clusters})
-    st.dataframe(cluster_df)
-
-
+        st.write("Etichetare tari pe clustere:")
+        cluster_df = pd.DataFrame({"Country": pivot_scaled.index, "Cluster": clusters})
+        st.dataframe(cluster_df)
+    else:
+        st.warning("Nu sunt suficiente tari pentru a rula KMeans (minim 3 necesare).")
 
 
 
@@ -173,29 +164,26 @@ with tabs[5]:
     required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
     df_reg = data_pivot[required_columns].dropna()
 
-    X = df_reg[["Unemployment rate", "Participation rate"]]
-    y = df_reg["GDP per capita"]
+    if df_reg.shape[0] > 0:
+        X = df_reg[["Unemployment rate", "Participation rate"]]
+        y = df_reg["GDP per capita"]
 
-    X = sm.add_constant(X)
-    model = sm.OLS(y, X).fit()
+        X = sm.add_constant(X)
+        model = sm.OLS(y, X).fit()
 
-    st.write(model.summary())
+        st.write(model.summary())
 
+        st.header("Regresie multipla (log GDP per capita)")
+        df_reg["log_gdp"] = np.log(df_reg["GDP per capita"])
 
-    st.header("Regresie multipla (log GDP per capita)")
+        X = df_reg[["Unemployment rate", "Participation rate"]]
+        y = df_reg["log_gdp"]
+        X = sm.add_constant(X)
 
-    required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
-    df_reg = data_pivot[required_columns].dropna()
-    df_reg["log_gdp"] = np.log(df_reg["GDP per capita"])
-
-    X = df_reg[["Unemployment rate", "Participation rate"]]
-    y = df_reg["log_gdp"]
-    X = sm.add_constant(X)
-
-    model = sm.OLS(y, X).fit()
-    st.write(model.summary())
-
-
+        model = sm.OLS(y, X).fit()
+        st.write(model.summary())
+    else:
+        st.warning("Nu sunt suficiente date complete pentru regresie multipla.")
 
 
 
@@ -204,13 +192,16 @@ with tabs[6]:
     st.header("Regresie logistica")
 
     df_clf = data_pivot[["Unemployment rate", "GDP per capita"]].dropna()
-    df_clf["Above Median"] = (df_clf["GDP per capita"] > df_clf["GDP per capita"].median()).astype(int)
+    if df_clf.shape[0] > 0:
+        df_clf["Above Median"] = (df_clf["GDP per capita"] > df_clf["GDP per capita"].median()).astype(int)
 
-    X = df_clf[["Unemployment rate"]]
-    X = sm.add_constant(X)
-    y = df_clf["Above Median"]
+        X = df_clf[["Unemployment rate"]]
+        X = sm.add_constant(X)
+        y = df_clf["Above Median"]
 
-    model = sm.Logit(y, X)
-    result = model.fit()
+        model = sm.Logit(y, X)
+        result = model.fit()
 
-    st.text(result.summary())
+        st.text(result.summary())
+    else:
+        st.warning("Nu sunt suficiente date complete pentru regresie logistica.")
