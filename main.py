@@ -65,10 +65,11 @@ with tabs[1]:
     indicator_data = data[data['Indicator'] == indicator_name]
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    sns.boxplot(y=indicator_data["Value"], ax=ax)
+    sns.boxplot(y=indicator_data["Value"], ax=ax, width=0.1)
 
     Q1 = indicator_data["Value"].quantile(0.25)
     Q3 = indicator_data["Value"].quantile(0.75)
+
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
@@ -78,7 +79,9 @@ with tabs[1]:
     for i, row in indicator_data.iterrows():
         ax.text(x=0, y=row["Value"], s=row["Country Name"], ha="center", va="bottom", fontsize=9, color="blue")
 
-    st.pyplot(fig)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.pyplot(fig, use_container_width=False)
 
 
 
@@ -191,11 +194,11 @@ with tabs[5]:
 with tabs[6]:
     st.header("Regresie logistica")
 
-    df_clf = data_pivot[["Unemployment rate", "GDP per capita"]].dropna()
+    df_clf = data_pivot[["Participation rate", "GDP per capita"]].dropna()
     if df_clf.shape[0] > 0:
         df_clf["Above Median"] = (df_clf["GDP per capita"] > df_clf["GDP per capita"].median()).astype(int)
 
-        X = df_clf[["Unemployment rate"]]
+        X = df_clf[["Participation rate"]]
         X = sm.add_constant(X)
         y = df_clf["Above Median"]
 
