@@ -5,7 +5,7 @@ import folium
 from streamlit_folium import folium_static
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LogisticRegression
 import statsmodels.api as sm
@@ -24,13 +24,13 @@ data = load_data()
 st.title("PIB per locuitor, rata somajului si rata de ocupare a populatiei in varsta de munca (15-64 ani) in Europa si Asia Centrala")
 
 tabs = st.tabs([
-    "1) Prelucrare & Statistici",
-    "2) Outlieri",
+    "1) Prelucrari date",
+    "2) Valori extreme",
     "3) Harta interactiva",
     "4) Codificare & Scalare",
     "5) Clusterizare",
-    "6) Regresie Multiplă",
-    "7) Clasificare"
+    "6) Regresie multipla",
+    "7) Regresie logistica"
 ])
 
 
@@ -138,12 +138,12 @@ with tabs[3]:
     st.header("Codificare si scalare")
     df_encoded = data.copy()
     le = LabelEncoder()
-    df_encoded['Country_Code'] = le.fit_transform(df_encoded['Country Name'])
+    df_encoded['Country_Code'] = le.fit_transform(df_encoded['Country Name']) + 1
     st.write("Exemplu codificare label:", df_encoded[['Country Name', 'Country_Code']].drop_duplicates().head())
 
-    # Scalare
+    # scalare
     pivot_scaled = data_pivot.fillna(data_pivot.mean())
-    scaler = StandardScaler()
+    scaler = MinMaxScaler()
     scaled_data = scaler.fit_transform(pivot_scaled)
     st.write("Date scalate:")
     st.dataframe(pd.DataFrame(scaled_data, index=pivot_scaled.index, columns=pivot_scaled.columns))
@@ -168,7 +168,7 @@ with tabs[4]:
 
 # ---------------------- TAB 6 ----------------------
 with tabs[5]:
-    st.header("Regresie multiplă")
+    st.header("Regresie multipla")
 
     required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
     df_reg = data_pivot[required_columns].dropna()
@@ -182,7 +182,7 @@ with tabs[5]:
     st.write(model.summary())
 
 
-    st.header("Regresie multiplă (log GDP per capita)")
+    st.header("Regresie multipla (log GDP per capita)")
 
     required_columns = ["Unemployment rate", "Participation rate", "GDP per capita"]
     df_reg = data_pivot[required_columns].dropna()
@@ -201,20 +201,16 @@ with tabs[5]:
 
 # ---------------------- TAB 7 ----------------------
 with tabs[6]:
-    st.header("Clasificare - Logistic Regression")
+    st.header("Regresie logistica")
+
     df_clf = data_pivot[["Unemployment rate", "GDP per capita"]].dropna()
     df_clf["Above Median"] = (df_clf["GDP per capita"] > df_clf["GDP per capita"].median()).astype(int)
 
     X = df_clf[["Unemployment rate"]]
+    X = sm.add_constant(X)
     y = df_clf["Above Median"]
 
-    clf = LogisticRegression()
-    clf.fit(X, y)
+    model = sm.Logit(y, X)
+    result = model.fit()
 
-    st.write("Coeficienti:", clf.coef_)
-    st.write("Intercept:", clf.intercept_)
-
-    st.write("Predicție pentru valori noi:")
-    example_value = st.slider("Rata somajului (exemplu):", float(X.min()), float(X.max()), float(X.mean()))
-    prediction = clf.predict([[example_value]])[0]
-    st.write(f"Clasificare: {'Peste medie' if prediction == 1 else 'Sub medie'}")
+    st.text(result.summary())
